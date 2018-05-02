@@ -143,7 +143,7 @@ if __name__ == '__main__':
 
     if len(sys.argv) != 2:
         print("usage: ./scaircrack dictionnary")
-
+        exit(1)
 
     wpa=rdpcap("wpa_handshake.cap")
 
