@@ -11,7 +11,7 @@ utilise l'algorithme Michael. Dans ce cas-ci, l'authentification, on utilise
 sha-1 pour WPA2 ou MD5 pour WPA)
 """
 
-__author__      = "Abraham Rubinstein, Tano Iannetta, Wojciech Myszkorowki"
+__author__      = "Abraham Rubinstein, Tano Iannetta, Wojciech Myszkorowski"
 __copyright__   = "Copyright 2017, HEIG-VD"
 __license__ 	= "GPL"
 __version__ 	= "1.0"
@@ -25,6 +25,13 @@ from numpy import array_split
 from numpy import array
 import hmac, hashlib
 
+# Replace mic in data string
+def replaceMIC(data, mic):
+
+    l = len(mic)
+
+    zeros = "0" * l
+    return data.replace(mic,zeros)
 
 # This function is used to get information needed for key derivation
 # from pcap file (ssid, APmac, client mac, ap nonce, client nonce, MIC) for a given SSID
@@ -33,8 +40,8 @@ def getInfo(pcap, wantedSSID):
     print("Values extracted from pcap")
     networks = {}
 
-    # 0 = ssid, 1 = APmac, 2= client mac, 3 = ap nonce, 4= client nonce, 5 = MIC
-    network = [None] * 6
+    # 0 = ssid, 1 = APmac, 2= client mac, 3 = ap nonce, 4= client nonce, 5 = MIC, 6 = data
+    network = [None] * 7
     clientMac = None
     eapolCount = 0
 
@@ -67,6 +74,11 @@ def getInfo(pcap, wantedSSID):
                 elif pkt.addr2 == clientMac and pkt.addr1 == APmac and int(b2a_hex(pkt[Raw].load[5:5 + 0x8]), 2) == 1: # key message 4 of 4
                     #print("Message 4 of 4")
                     network[5] = b2a_hex(pkt[Raw].load[77:77 + 16]) # MIC at the handshake's end
+
+                    data = str(pkt[EAPOL]).encode('hex') # data needed for key derivation
+                    # replace mic by 0's
+                    network[6] = replaceMIC(data,network[5])
+
                 eapolCount += 1
 
     # check for having complete 4 way handcheck
@@ -81,8 +93,10 @@ def getInfo(pcap, wantedSSID):
     print("AP nonce:\t" + network[3] + '\n')
     print("Client nonce:\t" + network[4] + '\n')
     print("MIC:\t" + network[5] + '\n')
+    print("Data:\t" + network[6] + '\n')
 
-    # Dictionnary {SSID: [SSID, APMac, ClientMAC, APNonce, ClientNonce, MIC]}
+
+    # Dictionnary {SSID: [SSID, APMac, ClientMAC, APNonce, ClientNonce, MIC, Data]}
     networks[network[0]] = network
 
     return networks[wantedSSID]
